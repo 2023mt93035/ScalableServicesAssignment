@@ -1,0 +1,11 @@
+{
+  "name": "ssassignment_banking",
+  "version": "1.0.0",
+  "description": "banking app",
+  "main": "index.js",
+  "scripts": {
+    "test": "npm test"
+  },
+  "author": "chandra.bhanu",
+  "license": "ISC"
+}
