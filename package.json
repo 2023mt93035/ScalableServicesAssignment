@@ -1,11 +1,15 @@
 {
-  "name": "ssassignment_banking",
+  "name": "ssassignment",
   "version": "1.0.0",
-  "description": "banking app",
-  "main": "index.js",
+  "description": "banking app - transaction service",
+  "main": "transaction_service.js",
   "scripts": {
     "test": "npm test"
   },
   "author": "chandra.bhanu",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.1",
+    "mongoose": "^6.0.13"
+  }
 }
