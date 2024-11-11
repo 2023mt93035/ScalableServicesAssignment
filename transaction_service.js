@@ -1,6 +1,7 @@
 // transactionService.js
 const express = require('express');
 const mongoose = require('mongoose');
+const jwt = require('jsonwebtoken');
 const app = express();
 app.use(express.json());
 
@@ -23,9 +24,26 @@ const transactionSchema = new mongoose.Schema({
 });
 const Transaction = mongoose.model('Transaction', transactionSchema);
 
+// Middleware to verify JWT
+const authenticateToken = (req, res, next) => {
+    const token = req.headers['authorization'].split(" ")[1];
+    if (!token) return res.status(403).json({ message: 'Access denied - No JWT token' });
+
+    jwt.verify(token, 'secretKey', (err, user) => {
+        if (err) return res.status(403).json({ message: 'Invalid token' });
+        req.user = user;
+        next();
+    });
+};
+
 // Endpoint to perform a transaction
-app.post('/transfer', async (req, res) => {
+app.post('/transfer', authenticateToken, async (req, res) => {
     const { fromUserId, toUserId, amount } = req.body;
+
+    // Only allow transactions initiated by the authenticated user
+    if (req.user.userId !== fromUserId) {
+        return res.status(403).json({ message: 'Unauthorized transaction' });
+    }
 
     const fromAccount = await Account.findOne({ userId: fromUserId });
     const toAccount = await Account.findOne({ userId: toUserId });
