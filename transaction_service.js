@@ -6,6 +6,19 @@ const IORedis = require('ioredis');
 const app = express();
 app.use(express.json());
 
+// Bull MQ dashboard to monitor jobs
+const { ExpressAdapter, createBullBoard } = require('@bull-board/express');
+const { Queue } = require('bullmq');
+
+const serverAdapter = new ExpressAdapter();
+createBullBoard({
+    queues: [new Queue('transactionQueue', { connection: redisConnection })],
+    serverAdapter,
+});
+
+serverAdapter.setBasePath('/admin/queues');
+app.use('/admin/queues', serverAdapter.getRouter());
+
 // MongoDB connection
 mongoose.connect('mongodb://localhost:27017/bankingApp', { useNewUrlParser: true, useUnifiedTopology: true });
 
