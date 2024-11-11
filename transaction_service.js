@@ -1,12 +1,19 @@
-// transactionService.js
 const express = require('express');
 const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
+const { Queue, Worker } = require('bullmq');
+const IORedis = require('ioredis');
 const app = express();
 app.use(express.json());
 
 // MongoDB connection
 mongoose.connect('mongodb://localhost:27017/bankingApp', { useNewUrlParser: true, useUnifiedTopology: true });
+
+// Redis connection
+const redisConnection = new IORedis(); // Connects to Redis running on default localhost:6379
+
+// BullMQ queue for transactions
+const transactionQueue = new Queue('transactionQueue', { connection: redisConnection });
 
 // Account schema
 const accountSchema = new mongoose.Schema({
@@ -36,7 +43,7 @@ const authenticateToken = (req, res, next) => {
     });
 };
 
-// Endpoint to perform a transaction
+// Endpoint to perform a transaction (adds transaction job to the queue)
 app.post('/transfer', authenticateToken, async (req, res) => {
     const { fromUserId, toUserId, amount } = req.body;
 
@@ -44,6 +51,16 @@ app.post('/transfer', authenticateToken, async (req, res) => {
     if (req.user.userId !== fromUserId) {
         return res.status(403).json({ message: 'Unauthorized transaction' });
     }
+
+    // Add transaction details as a job to the queue
+    await transactionQueue.add('processTransaction', { fromUserId, toUserId, amount });
+
+    res.json({ status: 'Queued', message: 'Transaction has been added to the queue for processing' });
+});
+
+// Worker to process queued transactions
+const transactionWorker = new Worker('transactionQueue', async job => {
+    const { fromUserId, toUserId, amount } = job.data;
 
     const fromAccount = await Account.findOne({ userId: fromUserId });
     const toAccount = await Account.findOne({ userId: toUserId });
@@ -60,10 +77,16 @@ app.post('/transfer', authenticateToken, async (req, res) => {
         const transaction = new Transaction({ fromUserId, toUserId, amount });
         await transaction.save();
 
-        res.json({ status: 'Success', message: 'Transaction completed' });
+        console.log(`Transaction from ${fromUserId} to ${toUserId} for amount ${amount} processed successfully.`);
     } else {
-        res.status(400).json({ status: 'Failure', message: 'Insufficient funds or invalid accounts' });
+        console.log(`Failed transaction from ${fromUserId} to ${toUserId}: Insufficient funds or invalid accounts.`);
+        throw new Error('Insufficient funds or invalid accounts');
     }
+}, { connection: redisConnection });
+
+// Log errors from the worker
+transactionWorker.on('failed', (job, err) => {
+    console.error(`Job failed for transaction from ${job.data.fromUserId} to ${job.data.toUserId}:`, err.message);
 });
 
 app.listen(3003, () => console.log('Transaction Service running on port 3003'));
