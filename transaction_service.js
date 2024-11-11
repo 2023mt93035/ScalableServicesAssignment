@@ -6,7 +6,7 @@ const IORedis = require('ioredis');
 const app = express();
 app.use(express.json());
 
-// Bull MQ dashboard to monitor jobs
+// Bull MQ dashboard to monitor jobs at http://localhost:3003/admin/queues
 const { ExpressAdapter, createBullBoard } = require('@bull-board/express');
 const { Queue } = require('bullmq');
 
