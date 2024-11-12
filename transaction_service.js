@@ -6,27 +6,35 @@ const IORedis = require('ioredis');
 const app = express();
 app.use(express.json());
 
-// Bull MQ dashboard to monitor jobs at http://localhost:3003/admin/queues
-const { ExpressAdapter, createBullBoard } = require('@bull-board/express');
-const { Queue } = require('bullmq');
+// Redis connection
+const redisConnection = new IORedis({
+    maxRetriesPerRequest: null, // Required by BullMQ to prevent automatic retries
+}); // Connects to Redis running on default localhost:6379
 
+
+// bull board at http://localhost:3003/admin/queues
+const { createBullBoard } = require('@bull-board/api');
+const { BullMQAdapter } = require('@bull-board/api/bullMQAdapter');
+const { ExpressAdapter } = require('@bull-board/express');
+
+// BullMQ queue for transactions
+const transactionQueue = new Queue('transactionQueue', { connection: redisConnection });
+
+// Initialize the server adapter for the Bull Board
 const serverAdapter = new ExpressAdapter();
+serverAdapter.setBasePath('/admin/queues');
+
+// Create Bull Board
 createBullBoard({
-    queues: [new Queue('transactionQueue', { connection: redisConnection })],
-    serverAdapter,
+    queues: [new BullMQAdapter(transactionQueue)],
+    serverAdapter: serverAdapter,
 });
 
-serverAdapter.setBasePath('/admin/queues');
+// Use Bull Board in the Express app
 app.use('/admin/queues', serverAdapter.getRouter());
 
 // MongoDB connection
 mongoose.connect('mongodb://localhost:27017/bankingApp', { useNewUrlParser: true, useUnifiedTopology: true });
-
-// Redis connection
-const redisConnection = new IORedis(); // Connects to Redis running on default localhost:6379
-
-// BullMQ queue for transactions
-const transactionQueue = new Queue('transactionQueue', { connection: redisConnection });
 
 // Account schema
 const accountSchema = new mongoose.Schema({
