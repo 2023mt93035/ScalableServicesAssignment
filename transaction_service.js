@@ -98,6 +98,8 @@ const transactionWorker = new Worker('transactionQueue', async job => {
         const transaction = new Transaction({ fromUserId, toUserId, amount });
         await transaction.save();
 
+        await transactionQueue.add('sendNotification', { fromUserId, toUserId, amount });
+        
         console.log(`Transaction from ${fromUserId} to ${toUserId} for amount ${amount} processed successfully.`);
     } else {
         console.log(`Failed transaction from ${fromUserId} to ${toUserId}: Insufficient funds or invalid accounts.`);
